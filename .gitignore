@@ -1,0 +1,5 @@
+venv
+generated_models
+assets
+*.blend1
+__pycache__

@@ -1,0 +1,85 @@
+<sdf version="1.8">
+    <world name="demo">
+        <physics name='1ms' type='ignored'>
+            <max_step_size>0.001</max_step_size>
+            <real_time_factor>1</real_time_factor>
+            <real_time_update_rate>1000</real_time_update_rate>
+        </physics>
+        <plugin name='ignition::gazebo::systems::Physics' filename='ignition-gazebo-physics-system'/>
+        <plugin name='ignition::gazebo::systems::UserCommands' filename='ignition-gazebo-user-commands-system'/>
+        <plugin name='ignition::gazebo::systems::SceneBroadcaster' filename='ignition-gazebo-scene-broadcaster-system'/>
+        <plugin filename="ignition-gazebo-sensors-system" name="ignition::gazebo::systems::Sensors">
+            <render_engine>ogre2</render_engine>
+        </plugin>
+        <scene>
+            <!-- <ambient>1 1 1 1</ambient> -->
+            <background>0.529 0.808 0.922</background>
+            <shadows>1</shadows>
+        </scene>
+        <light name='sun' type='directional'>
+            <cast_shadows>1</cast_shadows>
+            <pose>0 0 10 0 -0 0</pose>
+            <diffuse>0.8 0.8 0.8 1</diffuse>
+            <specular>0.8 0.8 0.8 1</specular>
+            <attenuation>
+                <range>1000</range>
+                <constant>0.9</constant>
+                <linear>0.01</linear>
+                <quadratic>0.001</quadratic>
+            </attenuation>
+            <direction>-0.5 0.1 -0.9</direction>
+            <spot>
+                <inner_angle>0</inner_angle>
+                <outer_angle>0</outer_angle>
+                <falloff>0</falloff>
+            </spot>
+        </light>
+        <light type="spot" name="spot">
+            <pose>0 0.0 3 0 0 0</pose>
+            <diffuse>0 1 0 1</diffuse>
+            <specular>.2 .2 .2 1</specular>
+            <attenuation>
+                <range>4</range>
+                <linear>0.5</linear>
+                <constant>0.2</constant>
+                <quadratic>0.01</quadratic>
+            </attenuation>
+            <direction>0 0 -1</direction>
+            <spot>
+                <inner_angle>0.1</inner_angle>
+                <outer_angle>0.5</outer_angle>
+                <falloff>0.8</falloff>
+            </spot>
+            <cast_shadows>true</cast_shadows>
+        </light>
+        <gravity>0 0 -9.8</gravity>
+        <magnetic_field>6e-06 2.3e-05 -4.2e-05</magnetic_field>
+        <atmosphere type='adiabatic'/>
+
+
+
+        <light type="point" name="point">
+            <pose>0 -1.5 3 0 0 0</pose>
+            <diffuse>1 1 1 1</diffuse>
+            <specular>.1 .1 .1 1</specular>
+            <attenuation>
+                <range>4</range>
+                <linear>0.5</linear>
+                <constant>0.2</constant>
+                <quadratic>0.01</quadratic>
+            </attenuation>
+            <cast_shadows>false</cast_shadows>
+            <visualize>false</visualize>
+        </light>
+
+        <include>
+            <uri>field</uri>
+            <pose>0.0 0.0 0.0 0 0 0</pose>
+        </include>
+
+        <include>
+            <uri>husky</uri>
+            <pose>-3.0 0.0 0.2 0 0 0</pose>
+        </include>
+    </world>
+</sdf>
