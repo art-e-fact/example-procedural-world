@@ -33,7 +33,7 @@ def generate_launch_description():
         package="ros_gz_bridge",
         executable="parameter_bridge",
         arguments=[
-            "/world/demo/model/costar_husky/link/base_link/sensor/front_laser/scan@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan",
+            "/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan",
             "/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist",
             "/model/costar_husky/pose@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V",
             "/model/costar_husky/pose_static@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V",
@@ -43,11 +43,7 @@ def generate_launch_description():
             "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
         ],
         remappings=[
-            (
-                "/world/demo/model/costar_husky/link/base_link/sensor/front_laser/scan",
-                "/scan",
-            ),
-            
+            ("/lidar", "/scan"),
             ("/model/costar_husky/pose", "/pose"),
             ("/model/costar_husky/pose_static", "/pose_static"),
             ("/model/costar_husky/tf", "/pose_odom"),
@@ -98,7 +94,6 @@ def generate_launch_description():
         arguments=["-d", LaunchConfiguration("rvizconfig")],
     )
 
-
     return launch.LaunchDescription(
         [
             # launch.actions.DeclareLaunchArgument(
@@ -128,8 +123,8 @@ def generate_launch_description():
             rviz_node,
             gazebo,
             bridge,
-            lidar_stf,
-            imu_stf,
+            # lidar_stf,
+            # imu_stf,
             # navigation,
         ]
     )
