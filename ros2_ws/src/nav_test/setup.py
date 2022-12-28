@@ -52,7 +52,7 @@ setup(
     entry_points={
         'console_scripts': [
             'pose_broadcaster = nav_test.pose_broadcaster:main',
-            'nav = nav_test.nav:main',
+            'robot = nav_test.robot:main',
         ],
     },
 )
