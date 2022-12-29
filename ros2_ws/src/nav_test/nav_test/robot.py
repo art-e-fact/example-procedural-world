@@ -2,7 +2,7 @@ from geometry_msgs.msg import Twist, Point, TransformStamped, Pose, PoseStamped
 from tf2_msgs.msg import TFMessage
 from tf2_geometry_msgs import do_transform_pose
 from visualization_msgs.msg import Marker
-from std_msgs.msg import ColorRGBA
+from std_msgs.msg import ColorRGBA, Header
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Path
 
@@ -13,6 +13,7 @@ import rclpy
 import rclpy.time
 from rclpy.node import Node
 
+import tf_transformations
 from tf2_ros import TransformBroadcaster, TransformException
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from tf2_ros.buffer import Buffer
@@ -71,17 +72,18 @@ class Robot(Node):
         self.publisher_cmd_vel = self.create_publisher(Twist, "cmd_vel", 1)
         self.publisher_map = self.create_publisher(OccupancyGrid, "map", 1)
         self.publisher_path = self.create_publisher(Path, "path", 1)
+        self.publisher_goal = self.create_publisher(PoseStamped, "goal", 1)
+        self.publisher_local_goal = self.create_publisher(PoseStamped, "local_goal", 1)
 
         # Calculate and send new navigation commands periodically
         self.timer = self.create_timer(1.0, self.navigate)
 
         self.map = np.zeros((256, 256), dtype=np.int8)
-        self.map_free = np.zeros(self.map.shape, dtype=np.int8)
-        self.map_wall = np.zeros(self.map.shape, dtype=np.int8)
         self.map_origin = Point(
             x=-self.map.shape[0] / 2.0 * self.map_resolution,
             y=-self.map.shape[1] / 2.0 * self.map_resolution,
         )
+        self.path = Path()
 
     def handle_pose(self, t):
         self.tf_broadcaster.sendTransform(t.transforms)
@@ -91,6 +93,8 @@ class Robot(Node):
 
     def handle_scan(self, msg: LaserScan):
         self.trace_markers.reset()
+        map_free = np.zeros(self.map.shape, dtype=np.int8)
+        map_wall = np.zeros(self.map.shape, dtype=np.int8)
 
         try:
             sensor_pose = self.tf_buffer.lookup_transform(
@@ -130,13 +134,11 @@ class Robot(Node):
                 round((laser_hit_pose.x - self.map_origin.x) / self.map_resolution),
                 round((laser_hit_pose.y - self.map_origin.y) / self.map_resolution),
             )
-            cv2.line(self.map_free, robot_map_pose, lidar_hit_map_pose, 1)
+            cv2.line(map_free, robot_map_pose, lidar_hit_map_pose, 1)
             if range < msg.range_max:
-                cv2.circle(
-                    self.map_wall, lidar_hit_map_pose, radius=1, color=1, thickness=1
-                )
-            self.map[self.map_free == 1] = 127
-            self.map[self.map_wall == 1] = -128
+                cv2.circle(map_wall, lidar_hit_map_pose, radius=1, color=1, thickness=1)
+            self.map[(map_free == 1) & (map_wall == 0) & (self.map < 100)] += 1
+            self.map[(map_wall == 1) & (self.map > -100)] -= -12
 
             if range < msg.range_max:
                 color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0)
@@ -146,10 +148,8 @@ class Robot(Node):
 
         self.trace_markers.publish()
         self.publish_map()
-        self.find_path(robot_map_pose, (robot_map_pose[0], robot_map_pose[1] + 100))
-
-    def navigate(self):
-        pass
+        self.find_path(robot_map_pose, (robot_map_pose[0] + 100, robot_map_pose[1]))
+        self.navigate()
 
     def publish_map(self):
         grid = OccupancyGrid()
@@ -165,13 +165,11 @@ class Robot(Node):
     def find_path(
         self, start: tuple[int, int], end: tuple[int, int], max_iterations=10000
     ):
-        print(f"finding path {start} > {end}")
         discovered = np.full(self.map.shape, 0.0)
         parent_map = np.full((self.map.shape[0], self.map.shape[1], 2), -1)
         score_map = np.full(self.map.shape, np.inf)
 
         def score(xy):
-            print(f"score {xy}")
             x, y = xy
             ways = [
                 (-1, 0),
@@ -186,16 +184,15 @@ class Robot(Node):
             step_costs = [1, 1, 1, 1, 1.414, 1.414, 1.414, 1.414]
             for step_cost, (sx, sy) in zip(step_costs, ways):
                 pos = np.array([x + sx, y + sy])
-                # avoid obstacles
-                if discovered[pos[0],pos[1]] or self.map[pos[0], pos[1]] < 0:
-                    print(f"Obstacle at {pos}")
+                # skip descovered nodes and obstacles
+                if discovered[pos[0], pos[1]] or self.map[pos[0], pos[1]] < 0:
                     continue
                 dist_cost = np.linalg.norm(pos - end)
                 cost = step_cost + dist_cost
                 if cost < score_map[pos[0], pos[1]]:
                     score_map[pos[0], pos[1]] = cost
                     parent_map[pos[0], pos[1]] = [x, y]
-                    if (parent_map[x,y][0] == pos[0] and parent_map[x,y][1] == pos[1]):
+                    if parent_map[x, y][0] == pos[0] and parent_map[x, y][1] == pos[1]:
                         raise Exception(f"Circular parenting {[x,y]}<>{pos}")
 
             discovered[x, y] = True
@@ -206,7 +203,7 @@ class Robot(Node):
             next = np.unravel_index(
                 (score_map + discovered * 999999999).argmin(), score_map.shape
             )
-            # found a path the goal
+            # found a path to the goal
             if next[0] == end[0] and next[1] == end[1]:
                 break
             score(next)
@@ -221,29 +218,88 @@ class Robot(Node):
             prev = path[0]
             parent = parent_map[prev[0], prev[1]]
             path.insert(0, parent)
-            print(f"building path {path[0]}")
 
             if parent[0] == start[0] and parent[1] == start[1]:
                 break
 
-        print("PATH", path)
-
-        path_msg = Path()
-        path_msg.header.frame_id = self.world_frame
-        path_msg.poses = [
+        self.path = Path()
+        self.path.header.frame_id = self.world_frame
+        self.path.poses = [
             PoseStamped(
+                header=Header(frame_id=self.world_frame),
                 pose=Pose(
                     position=Point(
                         x=pos[0] * self.map_resolution + self.map_origin.x,
                         y=pos[1] * self.map_resolution + self.map_origin.y,
                     )
-                )
+                ),
             )
             for pos in path
         ]
-        self.publisher_path.publish(path_msg)
+        self.publisher_path.publish(self.path)
 
-        
+    def navigate(self):
+        try:
+            robot_pose = self.tf_buffer.lookup_transform(
+                self.world_frame, self.robot_frame, rclpy.time.Time()
+            )
+        except TransformException as ex:
+            self.get_logger().info(
+                f'Could not transform "{self.world_frame}" to "{self.lidar_frame}": {ex}'
+            )
+            return
+
+        robot_xy = np.array(
+            [
+                robot_pose.transform.translation.x,
+                robot_pose.transform.translation.y,
+            ]
+        )
+
+        print(f"NAVIGATE {robot_pose} > {self.path}")
+
+        next_pose = None
+        min_pose_distance = 2.0
+        for pose in self.path.poses:
+            dist = np.linalg.norm(
+                robot_xy - np.array([pose.pose.position.x, pose.pose.position.y])
+            )
+            print(
+                f"ROBOt {robot_pose.transform.translation} > {pose.pose.position} = {dist}"
+            )
+            if dist >= min_pose_distance:
+                next_pose = pose
+
+                print(f"found next {next_pose.pose.position}")
+                self.publisher_local_goal.publish(next_pose)
+                break
+
+        if next_pose is None and len(self.path.poses) > 0:
+            next_pose = self.path.poses[-1]
+
+        if next_pose:
+            diff_xy = np.array([pose.pose.position.x, pose.pose.position.y]) - robot_xy
+            angle = np.arctan2(diff_xy[1], diff_xy[0])
+            distance = np.linalg.norm(diff_xy)
+
+            q_target = tf_transformations.quaternion_from_euler(0, 0, angle)
+            q1_inv = [0.0, 0.0, 0.0, 1.0]
+            q1_inv[0] = robot_pose.transform.rotation.x
+            q1_inv[1] = robot_pose.transform.rotation.y
+            q1_inv[2] = robot_pose.transform.rotation.z
+            q1_inv[3] = -robot_pose.transform.rotation.w  # Negate for inverse
+            q_diff = tf_transformations.quaternion_multiply(q_target, q1_inv)
+            angle = tf_transformations.euler_from_quaternion(q_diff)[2]
+            print(f"MOVING angle={angle} distance={distance}")
+
+            # TODO move speeds into args
+            cmd_msg = Twist()
+            if np.abs(angle) > 0.4:
+                cmd_msg.angular.z = angle * 20
+            else:
+                cmd_msg.angular.z = angle
+                cmd_msg.linear.x = 10.0 - np.abs(angle) * 8
+            self.publisher_cmd_vel.publish(cmd_msg)
 
 
 # TODO integrate into the robot class
