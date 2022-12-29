@@ -4,6 +4,7 @@ from tf2_geometry_msgs import do_transform_pose
 from visualization_msgs.msg import Marker
 from std_msgs.msg import ColorRGBA
 from sensor_msgs.msg import LaserScan
+from nav_msgs.msg import OccupancyGrid, MapMetaData
 
 import numpy as np
 
@@ -38,6 +39,12 @@ class Robot(Node):
             .get_parameter_value()
             .string_value
         )
+        # Set the default map resolution to 20cm
+        self.map_resolution = float(
+            self.declare_parameter("map_resolution", "0.2")
+            .get_parameter_value()
+            .string_value
+        )
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -61,9 +68,12 @@ class Robot(Node):
             LaserScan, f"/scan", self.handle_scan, 1
         )
         self.publisher_cmd_vel = self.create_publisher(Twist, "cmd_vel", 1)
+        self.publisher_map = self.create_publisher(OccupancyGrid, "map", 1)
 
         # Calculate and send new navigation commands periodically
         self.timer = self.create_timer(1.0, self.navigate)
+
+        self.map = np.zeros((1024, 1024), dtype=np.uint8)
 
     def handle_pose(self, t):
         self.tf_broadcaster.sendTransform(t.transforms)
@@ -90,20 +100,31 @@ class Robot(Node):
         ):
             range = msg.ranges[i]
             if np.isinf(range) or np.isnan(range):
-                continue
-            x = np.cos(angle) * range
-            y = np.sin(angle) * range
-            p = do_transform_pose(
-                Pose(position=Point(x=x, y=y)),
-                TransformStamped(transform=sensor_pose.transform),
-            ).position
-            color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0)
+                range = msg.range_max
+
+            if range < msg.range_max:
+                color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0)
+            else:
+                color = ColorRGBA(r=0.0, g=1.0, b=1.0, a=1.0)
             self.trace_markers.add_point(p, color)
 
         self.trace_markers.publish()
+        self.publish_map()
 
     def navigate(self):
         pass
+
+    def publish_map(self):
+        grid = OccupancyGrid()
+        grid.data = self.map.ravel().data
+        grid.header.frame_id = self.world_frame
+        grid.info = MapMetaData()
+        grid.info.height = self.map.shape[0]
+        grid.info.width = self.map.shape[1]
+        grid.info.origin.position.x = -grid.info.width / 2.0 * self.map_resolution
+        grid.info.origin.position.y = -grid.info.height / 2.0 * self.map_resolution
+        grid.info.resolution = self.map_resolution
+        self.publisher_map.publish(grid)
 
 
 # TODO integrate into the robot class
