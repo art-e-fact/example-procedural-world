@@ -1,0 +1,17 @@
+version: 0.1.0
+
+project: example-procedural-world
+jobs:
+  nav_tests: # Overall job name
+    type: test
+    runtime:
+      simulator: gazebo:fortress
+      framework: ros2:0
+    timeout: 2 #minutes
+    scenarios:
+      defaults: # Global to all scenarios, and overriden in specific scenarios.
+        subscriptions:
+          map: map
+      settings:
+        - name: reach_goal_1
+          ros_testfile: src/nav_test/test/test_navigation.launch.py
