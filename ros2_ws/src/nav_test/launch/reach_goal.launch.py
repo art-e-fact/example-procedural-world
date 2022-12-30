@@ -16,7 +16,7 @@ def generate_launch_description():
             ]
         ),
         launch_arguments={
-            # "turtlesim_ns": "turtlesim2",
+            # "seed": "7",
             # "use_provided_red": "True",
             # "new_background_r": TextSubstitution(text=str(colors["background_r"])),
         }.items(),
@@ -28,7 +28,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                "goal_x": "3.0",
+                "goal_x": "4.0",
                 "goal_y": "0.0",
             }
         ],

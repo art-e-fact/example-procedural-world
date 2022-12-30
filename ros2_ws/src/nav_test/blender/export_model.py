@@ -1,17 +1,36 @@
 import bpy
 import os
+import sys
 from xml.dom import minidom
 from xml.etree import ElementTree
 
-obj = bpy.context.selected_objects[0]
+# Features
+#   - Handle models with multiple materials 
 
-MODEL_NAME = "field"
-PATH_MODEL = bpy.path.abspath(f"//ros2_ws/src/nav_test/models/{MODEL_NAME}")
+if "--" in sys.argv:
+    argv = sys.argv[sys.argv.index("--") + 1:]
+else:
+    argv = []
+
+print(f"argv {argv}")
+if len(argv) > 0:
+    SEED = int(argv[0])
+else:
+    SEED = 0
+print(f"Using seed: {SEED}")
+
+MODEL_NAME = "Field"
+PATH_MODEL = bpy.path.abspath(f"//../models/{MODEL_NAME}")
 PATH_COLLISION = os.path.join(PATH_MODEL, 'assets/collision.obj')
 PATH_VISUAL = os.path.join(PATH_MODEL, 'assets/visual.obj')
 PATH_SDF = os.path.join(PATH_MODEL, 'model.sdf')
 PATH_CONFIG = os.path.join(PATH_MODEL, 'model.config')
 SDF_VERSION = '1.9'
+
+# select the model we want to export by name
+bpy.ops.object.select_all(action='DESELECT')
+bpy.data.objects[MODEL_NAME].select_set(True)
+obj = bpy.data.objects[MODEL_NAME]
 
 def duplicate(obj, add_to_scene=True):
     obj_copy = obj.copy()
@@ -30,6 +49,8 @@ def apply_modifiers(obj, is_collider: bool):
                 modifier[input.identifier] = True
             if input.name == "is_collider":
                 modifier[input.identifier] = is_collider
+            if input.name == "seed":
+                modifier[input.identifier] = SEED
         bpy.ops.object.modifier_apply(ctx, modifier=modifier.name)
             
     for i in reversed(range(len(obj.data.attributes))):
@@ -45,13 +66,14 @@ def apply_modifiers(obj, is_collider: bool):
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
 
-def write_xml(xml: ElementTree.Element, path: str):
+def write_xml(xml: ElementTree.Element, filepath: str):
     xml_string = minidom.parseString(
         ElementTree.tostring(xml, encoding="unicode")
     ).toprettyxml(indent="  ")
-    file = open(path, "w")
+    file = open(filepath, "w")
     file.write(xml_string)
     file.close()
+    print(f"Saved: {filepath}")
 
 def generate_sdf():
     sdf = ElementTree.Element("sdf", attrib={"version": SDF_VERSION})
@@ -71,7 +93,7 @@ def generate_sdf():
     visual_mesh_uri = ElementTree.SubElement(visual_mesh, "uri")
     visual_mesh_uri.text = os.path.relpath(PATH_VISUAL, os.path.dirname(PATH_SDF))
 
-    # Surface friction
+    # Collider geometry
     collision = ElementTree.SubElement(
         link, "collision", attrib={"name": f"{MODEL_NAME}_collision"}
     )
@@ -122,6 +144,7 @@ def export_selection(filepath: str, with_materials: bool):
         # global_scale=1,
         path_mode="COPY",
     )
+    print(f"Saved {filepath}")
 
 copied_obj = duplicate(obj) 
 apply_modifiers(copied_obj, is_collider=False)

@@ -2,14 +2,13 @@ import launch
 from launch.substitutions import Command, LaunchConfiguration
 from launch.actions import ExecuteProcess
 from launch_ros.actions import Node
-import launch_ros
+from launch_ros.substitutions import FindPackageShare
 import os
 
 
 def generate_launch_description():
-    pkg_share = launch_ros.substitutions.FindPackageShare(package="nav_test").find(
-        "nav_test"
-    )
+    print("SEED___________________________________________________!!!", launch.substitutions.LaunchConfiguration('seed'))
+    pkg_share = FindPackageShare(package="nav_test").find("nav_test")
     default_rviz_config_path = os.path.join(pkg_share, "rviz/navigation.rviz")
     world_path = os.path.join(pkg_share, "world/my_world.sdf")
 
@@ -17,13 +16,35 @@ def generate_launch_description():
     world_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "../worlds/scene1.sdf"
     )
-    gazebo = ExecuteProcess(
-        cmd=["ign", "gazebo", "-v 4", "-r", world_path],
-        additional_env={
-            "IGN_GAZEBO_MODEL_PATH": models_path,
-            "IGN_GAZEBO_RESOURCE_PATH": models_path,
-        },
+
+    pkg_share = FindPackageShare(package="nav_test").find("nav_test")
+
+    generate_field_model = ExecuteProcess(
+        cmd=[
+            "blender",
+            "-b",
+            os.path.join(pkg_share, "blender/navigation.blend"),
+            "--python",
+            os.path.join(pkg_share, "blender/export_model.py"),
+            "--",
+            launch.substitutions.LaunchConfiguration('seed')
+        ],
         output="screen",
+    )
+
+    # delay starting gazebo to make sure the model generation is done
+    gazebo = launch.actions.TimerAction(
+        period=2.0,
+        actions=[
+            ExecuteProcess(
+                cmd=["ign", "gazebo", "-v 4", "-r", world_path],
+                additional_env={
+                    "IGN_GAZEBO_MODEL_PATH": models_path,
+                    "IGN_GAZEBO_RESOURCE_PATH": models_path,
+                },
+                output="screen",
+            )
+        ],
     )
 
     bridge = Node(
@@ -49,9 +70,7 @@ def generate_launch_description():
         output="screen",
     )
 
-
-
-    rviz_node = launch_ros.actions.Node(
+    rviz_node = Node(
         package="rviz2",
         executable="rviz2",
         name="rviz2",
@@ -67,10 +86,11 @@ def generate_launch_description():
                 description="Absolute path to rviz config file",
             ),
             launch.actions.DeclareLaunchArgument(
-                name="use_sim_time",
-                default_value="True",
-                description="Flag to enable use_sim_time",
+                name="seed",
+                default_value="1",
+                description="Random seed for generating procedural assets",
             ),
+            generate_field_model,
             rviz_node,
             gazebo,
             bridge,

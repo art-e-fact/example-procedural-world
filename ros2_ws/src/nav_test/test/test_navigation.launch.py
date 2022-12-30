@@ -7,37 +7,38 @@ from ament_index_python.packages import get_package_share_directory
 
 import pytest
 import launch_testing
-import launch
+from launch_testing.actions import ReadyToTest  
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch_ros.actions import Node
 
 
 @pytest.mark.launch_test
 def generate_test_description():
-    TEST_PROC_PATH = os.path.join(
-        ament_index_python.get_package_prefix('nav_test'),
-        'nav_test',
-        'robot.py'
+    rosbag_cmd = ["ros2", "bag", "record"]
+    bag_recorder = ExecuteProcess(
+        cmd=rosbag_cmd, output="screen", additional_env={"PYTHONUNBUFFERED": "1"}
     )
 
-    rosbag_cmd = ['ros2', 'bag', 'record']
-    bag_recorder = ExecuteProcess(
-        cmd=rosbag_cmd,
-        output='screen', additional_env={'PYTHONUNBUFFERED': '1'})
-
     reach_goal = IncludeLaunchDescription(
-      PythonLaunchDescriptionSource([os.path.join(
-         get_package_share_directory('nav_test'), 'launch'),
-         '/reach_goal.launch.py'])
-      )
+        PythonLaunchDescriptionSource(
+            [
+                os.path.join(get_package_share_directory("nav_test"), "launch"),
+                "/reach_goal.launch.py",
+            ]
+        ),
+        launch_arguments={
+            # "seed": "7",
+        }.items(),
+    )
 
-    return LaunchDescription([
-        reach_goal,
-        bag_recorder,
-        launch_testing.actions.ReadyToTest()
-    ])
+    return LaunchDescription(
+        [
+            reach_goal,
+            bag_recorder,
+            ReadyToTest(),
+        ]
+    )
 
 
 class TestTurtle(unittest.TestCase):

@@ -40,7 +40,7 @@ setup(
     version="0.0.0",
     packages=[package_name],
     data_files=package_files(
-        data_files, ["launch/", "models/", "rviz/", "worlds/"]
+        data_files, ["launch/", "models/", "rviz/", "worlds/", "blender/"],
     ),
     install_requires=["setuptools"],
     zip_safe=True,
@@ -51,7 +51,6 @@ setup(
     tests_require=["pytest"],
     entry_points={
         'console_scripts': [
-            'pose_broadcaster = nav_test.pose_broadcaster:main',
             'robot = nav_test.robot:main',
         ],
     },
