@@ -41,12 +41,25 @@ class Robot(Node):
             .get_parameter_value()
             .string_value
         )
-        # Set the default map resolution to 20cm
+        # Set the default map resolution to 10cm
         self.map_resolution = float(
             self.declare_parameter("map_resolution", "0.1")
             .get_parameter_value()
             .string_value
         )
+        goal_x = float(
+            self.declare_parameter("goal_x", "3.0").get_parameter_value().string_value
+        )
+        goal_y = float(
+            self.declare_parameter("goal_y", "0.0").get_parameter_value().string_value
+        )
+        # TODO copy name from navigation2
+        self.max_goal_distance = float(
+            self.declare_parameter("max_goal_distance", "0.5")
+            .get_parameter_value()
+            .string_value
+        )
+        self.goal = PoseStamped(pose=Pose(position=Point(x=goal_x, y=goal_y)))
 
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
@@ -72,7 +85,9 @@ class Robot(Node):
         self.publisher_cmd_vel = self.create_publisher(Twist, "cmd_vel", 1)
         self.publisher_map = self.create_publisher(OccupancyGrid, "map", 1)
         self.publisher_path = self.create_publisher(Path, "path", 1)
-        self.publisher_goal = self.create_publisher(PoseStamped, "goal", 1)
+        self.publisher_goal = self.create_publisher(
+            PoseStamped, "goal", 1
+        )  # TODO publish goal
         self.publisher_local_goal = self.create_publisher(PoseStamped, "local_goal", 1)
 
         # Calculate and send new navigation commands periodically
@@ -91,6 +106,12 @@ class Robot(Node):
     def handle_pose_static(self, t):
         self.tf_static_broadcaster.sendTransform(t.transforms)
 
+    def world_pose_to_map(self, pose):
+        return (
+            round((pose.x - self.map_origin.x) / self.map_resolution),
+            round((pose.y - self.map_origin.y) / self.map_resolution),
+        )
+
     def handle_scan(self, msg: LaserScan):
         self.trace_markers.reset()
         map_free = np.zeros(self.map.shape, dtype=np.int8)
@@ -106,16 +127,7 @@ class Robot(Node):
             )
             return
 
-        robot_map_pose = (
-            round(
-                (sensor_pose.transform.translation.x - self.map_origin.x)
-                / self.map_resolution
-            ),
-            round(
-                (sensor_pose.transform.translation.y - self.map_origin.y)
-                / self.map_resolution
-            ),
-        )
+        robot_map_pose = self.world_pose_to_map(sensor_pose.transform.translation)
 
         for i, angle in enumerate(
             np.linspace(msg.angle_min, msg.angle_max, len(msg.ranges))
@@ -130,13 +142,10 @@ class Robot(Node):
                 Pose(position=Point(x=x, y=y)),
                 TransformStamped(transform=sensor_pose.transform),
             ).position
-            lidar_hit_map_pose = (
-                round((laser_hit_pose.x - self.map_origin.x) / self.map_resolution),
-                round((laser_hit_pose.y - self.map_origin.y) / self.map_resolution),
-            )
+            lidar_hit_map_pose = self.world_pose_to_map(laser_hit_pose)
             cv2.line(map_free, robot_map_pose, lidar_hit_map_pose, 1)
             if range < msg.range_max:
-                cv2.circle(map_wall, lidar_hit_map_pose, radius=1, color=1, thickness=1)
+                cv2.circle(map_wall, lidar_hit_map_pose, radius=1, color=1, thickness=3)
             self.map[(map_free == 1) & (map_wall == 0) & (self.map < 100)] += 1
             self.map[(map_wall == 1) & (self.map > -100)] -= -12
 
@@ -148,8 +157,9 @@ class Robot(Node):
 
         self.trace_markers.publish()
         self.publish_map()
-        self.find_path(robot_map_pose, (robot_map_pose[0] + 100, robot_map_pose[1]))
+        self.find_path(robot_map_pose, self.world_pose_to_map(self.goal.pose.position))
         self.navigate()
+        self.check_goal_reached()
 
     def publish_map(self):
         grid = OccupancyGrid()
@@ -169,6 +179,7 @@ class Robot(Node):
         parent_map = np.full((self.map.shape[0], self.map.shape[1], 2), -1)
         score_map = np.full(self.map.shape, np.inf)
 
+        # discover one node, and update its neighbours
         def score(xy):
             x, y = xy
             ways = [
@@ -182,8 +193,17 @@ class Robot(Node):
                 (-1, 1),
             ]
             step_costs = [1, 1, 1, 1, 1.414, 1.414, 1.414, 1.414]
+
             for step_cost, (sx, sy) in zip(step_costs, ways):
                 pos = np.array([x + sx, y + sy])
+                # skip out of map nodes
+                if (
+                    pos[0] < 0
+                    or pos[1] < 0
+                    or pos[0] >= self.map.shape[0]
+                    or pos[1] >= self.map.shape[1]
+                ):
+                    continue
                 # skip descovered nodes and obstacles
                 if discovered[pos[0], pos[1]] or self.map[pos[0], pos[1]] < 0:
                     continue
@@ -197,8 +217,11 @@ class Robot(Node):
 
             discovered[x, y] = True
 
+        # discover the first node (current pose of the robot)
         score(start)
 
+        # TODO should we use recursive functions instead of while loops?
+        # keep discovering nodes until the end-node is reached
         while True:
             next = np.unravel_index(
                 (score_map + discovered * 999999999).argmin(), score_map.shape
@@ -208,6 +231,7 @@ class Robot(Node):
                 break
             score(next)
 
+        # build the path by walking backwards from the end node
         path = [end]
         fuse = 1000
         while True:
@@ -238,15 +262,20 @@ class Robot(Node):
         ]
         self.publisher_path.publish(self.path)
 
-    def navigate(self):
+    def lookup_transform(self, target_frame: str, source_frame: str):
         try:
-            robot_pose = self.tf_buffer.lookup_transform(
-                self.world_frame, self.robot_frame, rclpy.time.Time()
+            return self.tf_buffer.lookup_transform(
+                target_frame, source_frame, rclpy.time.Time()
             )
         except TransformException as ex:
             self.get_logger().info(
-                f'Could not transform "{self.world_frame}" to "{self.lidar_frame}": {ex}'
+                f'Could not transform "{target_frame}" to "{source_frame}": {ex}'
             )
+            return None
+
+    def navigate(self):
+        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame)
+        if robot_pose == None:
             return
 
         robot_xy = np.array(
@@ -256,26 +285,21 @@ class Robot(Node):
             ]
         )
 
-        print(f"NAVIGATE {robot_pose} > {self.path}")
-
         next_pose = None
-        min_pose_distance = 2.0
+        min_pose_distance = 0.5
         for pose in self.path.poses:
             dist = np.linalg.norm(
                 robot_xy - np.array([pose.pose.position.x, pose.pose.position.y])
             )
-            print(
-                f"ROBOt {robot_pose.transform.translation} > {pose.pose.position} = {dist}"
-            )
             if dist >= min_pose_distance:
                 next_pose = pose
-
-                print(f"found next {next_pose.pose.position}")
-                self.publisher_local_goal.publish(next_pose)
                 break
 
         if next_pose is None and len(self.path.poses) > 0:
             next_pose = self.path.poses[-1]
+
+        self.publisher_local_goal.publish(next_pose)
+        self.publisher_goal.publish(self.goal)
 
         if next_pose:
             diff_xy = np.array([pose.pose.position.x, pose.pose.position.y]) - robot_xy
@@ -290,7 +314,6 @@ class Robot(Node):
             q1_inv[3] = -robot_pose.transform.rotation.w  # Negate for inverse
             q_diff = tf_transformations.quaternion_multiply(q_target, q1_inv)
             angle = tf_transformations.euler_from_quaternion(q_diff)[2]
-            print(f"MOVING angle={angle} distance={distance}")
 
             # TODO move speeds into args
             cmd_msg = Twist()
@@ -300,6 +323,23 @@ class Robot(Node):
                 cmd_msg.angular.z = angle
                 cmd_msg.linear.x = 10.0 - np.abs(angle) * 8
             self.publisher_cmd_vel.publish(cmd_msg)
+
+    def check_goal_reached(self):
+        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame)
+        if robot_pose == None or len(self.path.poses) == 0:
+            return
+
+        distance = np.linalg.norm(
+            np.array(
+                [robot_pose.transform.translation.x, robot_pose.transform.translation.y]
+            )
+            - np.array([self.goal.pose.position.x, self.goal.pose.position.y])
+        )
+
+        if distance <= self.max_goal_distance:
+            self.get_logger().info("Goal reached!")
+        else:
+            self.get_logger().info(f"Goal is {distance}m away")  
 
 
 # TODO integrate into the robot class

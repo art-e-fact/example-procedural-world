@@ -40,7 +40,7 @@ setup(
     version="0.0.0",
     packages=[package_name],
     data_files=package_files(
-        data_files, ["config/", "launch/", "models/", "rviz/", "worlds/"]
+        data_files, ["launch/", "models/", "rviz/", "worlds/"]
     ),
     install_requires=["setuptools"],
     zip_safe=True,
