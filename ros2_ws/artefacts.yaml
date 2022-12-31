@@ -12,10 +12,11 @@ jobs:
       defaults: # Global to all scenarios, and overriden in specific scenarios.
         subscriptions:
           map: map
+        output_path: /tmp/artefacts_output
       settings:
         - name: reach_goal_1
           ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=4"
-        - name: reach_goal_2
-          ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=5"
-        - name: reach_goal_3
-          ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=6"
+        # - name: reach_goal_2
+        #   ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=5"
+        # - name: reach_goal_3
+        #   ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=6"

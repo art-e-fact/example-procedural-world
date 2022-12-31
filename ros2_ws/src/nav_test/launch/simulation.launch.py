@@ -1,5 +1,5 @@
 import launch
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import LaunchConfiguration
 from launch.actions import ExecuteProcess
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
@@ -7,7 +7,6 @@ import os
 
 
 def generate_launch_description():
-    print("SEED___________________________________________________!!!", launch.substitutions.LaunchConfiguration('seed'))
     pkg_share = FindPackageShare(package="nav_test").find("nav_test")
     default_rviz_config_path = os.path.join(pkg_share, "rviz/navigation.rviz")
     world_path = os.path.join(pkg_share, "world/my_world.sdf")
@@ -27,7 +26,7 @@ def generate_launch_description():
             "--python",
             os.path.join(pkg_share, "blender/export_model.py"),
             "--",
-            launch.substitutions.LaunchConfiguration('seed')
+            launch.substitutions.LaunchConfiguration("seed"),
         ],
         output="screen",
     )
@@ -59,6 +58,7 @@ def generate_launch_description():
             "/model/costar_husky/odometry@nav_msgs/msg/Odometry[ignition.msgs.Odometry",
             "/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU",
             "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
+            "/sky_cam@sensor_msgs/msg/Image@ignition.msgs.Image",
         ],
         remappings=[
             ("/lidar", "/scan"),

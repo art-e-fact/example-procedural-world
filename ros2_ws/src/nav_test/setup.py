@@ -52,6 +52,7 @@ setup(
     entry_points={
         'console_scripts': [
             'robot = nav_test.robot:main',
+            'snapshot_sky = nav_test.snapshot_sky:main',
         ],
     },
 )

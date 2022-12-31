@@ -222,7 +222,7 @@ class Robot(Node):
 
         # TODO should we use recursive functions instead of while loops?
         # keep discovering nodes until the end-node is reached
-        while True:
+        while not np.all(discovered):
             next = np.unravel_index(
                 (score_map + discovered * 999999999).argmin(), score_map.shape
             )
@@ -237,7 +237,8 @@ class Robot(Node):
         while True:
             fuse -= 1
             if fuse < 0:
-                raise Exception("Failed to build path")
+                self.get_logger().error(f"Failed to build path")
+                return
 
             prev = path[0]
             parent = parent_map[prev[0], prev[1]]
@@ -298,10 +299,10 @@ class Robot(Node):
         if next_pose is None and len(self.path.poses) > 0:
             next_pose = self.path.poses[-1]
 
-        self.publisher_local_goal.publish(next_pose)
-        self.publisher_goal.publish(self.goal)
-
         if next_pose:
+            self.publisher_local_goal.publish(next_pose)
+            self.publisher_goal.publish(self.goal)
+
             diff_xy = np.array([pose.pose.position.x, pose.pose.position.y]) - robot_xy
             angle = np.arctan2(diff_xy[1], diff_xy[0])
             distance = np.linalg.norm(diff_xy)
@@ -339,7 +340,7 @@ class Robot(Node):
         if distance <= self.max_goal_distance:
             self.get_logger().info("Goal reached!")
         else:
-            self.get_logger().info(f"Goal is {distance}m away")  
+            self.get_logger().info(f"Goal is {distance}m away")
 
 
 # TODO integrate into the robot class

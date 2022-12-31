@@ -11,6 +11,8 @@ from launch_testing.actions import ReadyToTest
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+from launch.substitutions import LaunchConfiguration
 
 
 @pytest.mark.launch_test
@@ -18,6 +20,13 @@ def generate_test_description():
     rosbag_cmd = ["ros2", "bag", "record"]
     bag_recorder = ExecuteProcess(
         cmd=rosbag_cmd, output="screen", additional_env={"PYTHONUNBUFFERED": "1"}
+    )
+
+
+    # snapshot sky
+    snapshot_sky = Node(
+        package='nav_test', 
+        executable='snapshot_sky', 
     )
 
     reach_goal = IncludeLaunchDescription(
@@ -37,6 +46,7 @@ def generate_test_description():
             reach_goal,
             bag_recorder,
             ReadyToTest(),
+            snapshot_sky,
         ]
     )
 
