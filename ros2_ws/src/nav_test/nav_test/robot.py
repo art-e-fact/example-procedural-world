@@ -64,11 +64,6 @@ class Robot(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
-        self.trace_markers = TraceMarkers(self)
-        self.trace_markers.add_point(
-            Point(x=1.0, y=1.0, z=1.0), ColorRGBA(r=1.0, g=0.0, b=0.0, a=1.0)
-        )
-
         # Initialize the transform broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)
         self.tf_static_broadcaster = StaticTransformBroadcaster(self)
@@ -91,7 +86,10 @@ class Robot(Node):
         self.publisher_local_goal = self.create_publisher(PoseStamped, "local_goal", 1)
 
         # Calculate and send new navigation commands periodically
-        self.timer = self.create_timer(1.0, self.navigate)
+        self.timer = self.create_timer(0.1, self.navigate)
+
+        # Save map periodically
+        self.timer = self.create_timer(2.0, self.save_map_to_image)
 
         self.map = np.zeros((256, 256), dtype=np.int8)
         self.map_origin = Point(
@@ -113,7 +111,6 @@ class Robot(Node):
         )
 
     def handle_scan(self, msg: LaserScan):
-        self.trace_markers.reset()
         map_free = np.zeros(self.map.shape, dtype=np.int8)
         map_wall = np.zeros(self.map.shape, dtype=np.int8)
 
@@ -149,13 +146,6 @@ class Robot(Node):
             self.map[(map_free == 1) & (map_wall == 0) & (self.map < 100)] += 1
             self.map[(map_wall == 1) & (self.map > -100)] -= -12
 
-            if range < msg.range_max:
-                color = ColorRGBA(r=0.0, g=1.0, b=0.0, a=1.0)
-            else:
-                color = ColorRGBA(r=0.0, g=1.0, b=1.0, a=1.0)
-            self.trace_markers.add_point(laser_hit_pose, color)
-
-        self.trace_markers.publish()
         self.publish_map()
         self.find_path(robot_map_pose, self.world_pose_to_map(self.goal.pose.position))
         self.navigate()
@@ -172,11 +162,21 @@ class Robot(Node):
         grid.info.resolution = self.map_resolution
         self.publisher_map.publish(grid)
 
+    def save_map_to_image(self):
+        map_img = np.full((*self.map.shape, 3), 0, np.uint8)
+        # save free nodes into the green channel
+        map_img[:, :, 1] = np.maximum(self.map, 0).view(np.uint8) * 2
+        # save occupied nodes into the red channel
+        map_img[:, :, 2] = (np.maximum(np.minimum(self.map, 0), -127) * -1).view(
+            np.uint8
+        ) * 2
+        cv2.imwrite('/tmp/artefacts_output/map.png', map_img)
+
     def find_path(
         self, start: tuple[int, int], end: tuple[int, int], max_iterations=10000
     ):
         discovered = np.full(self.map.shape, 0.0)
-        parent_map = np.full((self.map.shape[0], self.map.shape[1], 2), -1)
+        parent_map = np.full((*self.map.shape, 2), -1)
         score_map = np.full(self.map.shape, np.inf)
 
         # discover one node, and update its neighbours
@@ -305,7 +305,6 @@ class Robot(Node):
 
             diff_xy = np.array([pose.pose.position.x, pose.pose.position.y]) - robot_xy
             angle = np.arctan2(diff_xy[1], diff_xy[0])
-            distance = np.linalg.norm(diff_xy)
 
             q_target = tf_transformations.quaternion_from_euler(0, 0, angle)
             q1_inv = [0.0, 0.0, 0.0, 1.0]
@@ -341,36 +340,6 @@ class Robot(Node):
             self.get_logger().info("Goal reached!")
         else:
             self.get_logger().info(f"Goal is {distance}m away")
-
-
-# TODO integrate into the robot class
-class TraceMarkers:
-    def __init__(self, node: Node):
-        topic = "debug_markers"
-        self.publisher = node.create_publisher(Marker, topic, 10)
-        self.reset()
-
-    def reset(self):
-        points = Marker()
-        points.id = 10
-        points.type = Marker.POINTS
-        points.action = Marker.ADD
-        points.header.frame_id = "test_world"  # TODO read from robot
-        points.scale.x = 0.05
-        points.scale.y = 0.05
-        points.color.a = 1.0
-        points.color.r = 1.0
-        points.color.g = 0.0
-        points.color.b = 0.0
-        points.pose.orientation.w = 1.0
-        self.marker = points
-
-    def add_point(self, point, color):
-        self.marker.points.append(point)
-        self.marker.colors.append(color)
-
-    def publish(self):
-        self.publisher.publish(self.marker)
 
 
 def main():
