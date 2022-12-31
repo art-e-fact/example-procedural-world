@@ -29,6 +29,18 @@ def generate_test_description():
         executable='snapshot_sky', 
     )
 
+    video_recorder = Node(
+        package='image_view',
+        executable='video_recorder',
+        parameters=[{
+            "filename": '/tmp/artefacts_output/topdown.mp4',
+            "codec": "h264"
+        }],
+        remappings=[
+            ("image", "/sky_cam")
+        ]
+    )
+
     reach_goal = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(
             [
@@ -47,6 +59,7 @@ def generate_test_description():
             bag_recorder,
             ReadyToTest(),
             snapshot_sky,
+            video_recorder,
         ]
     )
 
