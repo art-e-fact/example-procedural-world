@@ -35,7 +35,7 @@
             </spot>
         </light>
         <light type="spot" name="spot">
-            <pose>0 0.0 3 0 0 0</pose>
+            <pose>3.0 0 3 0 0 0</pose>
             <diffuse>0 1 0 1</diffuse>
             <specular>.2 .2 .2 1</specular>
             <attenuation>
