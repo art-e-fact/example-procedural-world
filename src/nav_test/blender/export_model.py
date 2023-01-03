@@ -4,14 +4,13 @@ import sys
 from xml.dom import minidom
 from xml.etree import ElementTree
 
-# Features
-#   - Handle models with multiple materials 
-
 if "--" in sys.argv:
     argv = sys.argv[sys.argv.index("--") + 1:]
 else:
     argv = []
 
+# Try to read the SEED from arguments
+# TODO read start-goal positions from arguments
 print(f"argv {argv}")
 if len(argv) > 0:
     SEED = int(argv[0])
@@ -20,6 +19,7 @@ else:
 print(f"Using seed: {SEED}")
 
 MODEL_NAME = "Field"
+# "//" is converted to the directory of the .blend file
 PATH_MODEL = bpy.path.abspath(f"//../models/{MODEL_NAME}")
 PATH_COLLISION = os.path.join(PATH_MODEL, 'assets/collision.obj')
 PATH_VISUAL = os.path.join(PATH_MODEL, 'assets/visual.obj')
@@ -27,23 +27,18 @@ PATH_SDF = os.path.join(PATH_MODEL, 'model.sdf')
 PATH_CONFIG = os.path.join(PATH_MODEL, 'model.config')
 SDF_VERSION = '1.9'
 
-# select the model we want to export by name
+# Select the model we want to export by name
 bpy.ops.object.select_all(action='DESELECT')
 bpy.data.objects[MODEL_NAME].select_set(True)
 obj = bpy.data.objects[MODEL_NAME]
 
-def duplicate(obj, add_to_scene=True):
-    obj_copy = obj.copy()
-    obj_copy.data = obj_copy.data.copy()
-    if add_to_scene:
-        bpy.context.scene.collection.objects.link(obj_copy)
-    return obj_copy
-
+# Apply all modifiers on the selected Blender object
 def apply_modifiers(obj, is_collider: bool):
     ctx = bpy.context.copy()
     ctx['object'] = obj
     for modifier in obj.modifiers:
         ctx['modifier'] = modifier
+        # Set the Geometry Node inputs
         for input in modifier.node_group.inputs:
             if input.name == "is_exporting":
                 modifier[input.identifier] = True
@@ -52,7 +47,10 @@ def apply_modifiers(obj, is_collider: bool):
             if input.name == "seed":
                 modifier[input.identifier] = SEED
         bpy.ops.object.modifier_apply(ctx, modifier=modifier.name)
-            
+
+    # Applying geometry nodes won't preserve the UV maps of the instanced meshes.
+    #  Lucliky, the UV data is still available in the attributes, so we can convert
+    #  back UV maps. For more info see: https://developer.blender.org/T85962#1375353
     for i in reversed(range(len(obj.data.attributes))):
         attr = obj.data.attributes[i]
         obj.data.attributes.active_index = i
@@ -66,6 +64,15 @@ def apply_modifiers(obj, is_collider: bool):
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
 
+# Util for duplicating a Blender object
+def duplicate(obj, add_to_scene=True):
+    obj_copy = obj.copy()
+    obj_copy.data = obj_copy.data.copy()
+    if add_to_scene:
+        bpy.context.scene.collection.objects.link(obj_copy)
+    return obj_copy
+
+# Util for saving an XML file
 def write_xml(xml: ElementTree.Element, filepath: str):
     xml_string = minidom.parseString(
         ElementTree.tostring(xml, encoding="unicode")
@@ -123,41 +130,39 @@ def export_selection(filepath: str, with_materials: bool):
     bpy.ops.export_scene.obj(
         filepath=filepath,
         check_existing=False,
+        # Use ROS coordinate frame
         axis_forward="Y",
         axis_up="Z",
         use_selection=True,
-        # use_animation=False,
-        # use_mesh_modifiers=True,
-        # use_edges=True,
-        # use_smooth_groups=False,
-        # use_smooth_groups_bitflags=False,
-        # use_normals=True,
-        # use_uvs=True,
         use_materials=with_materials,
         use_triangles=True,
-        # use_nurbs=False,
-        # use_vertex_groups=False,
-        # use_blen_objects=True,
-        # group_by_object=False,
-        # group_by_material=False,
-        # keep_vertex_order=False,
-        # global_scale=1,
+        # copy all the texture images next to the model
         path_mode="COPY",
     )
     print(f"Saved {filepath}")
 
+# Generate the visible mesh
+
+# Duplicate the object before any modification
 copied_obj = duplicate(obj) 
+# Apply the Geometry Node (and any other) modifiers
 apply_modifiers(copied_obj, is_collider=False)
+# Export mesh
 export_selection(PATH_VISUAL, with_materials=True)
 #TODO separate meshes and collect texture info
+# Delete the duplicated object
 bpy.ops.object.delete()
 
+# Generate the collision mesh
 copied_obj = duplicate(obj) 
+# Set is_collider True to turn on mesh optimizations
 apply_modifiers(copied_obj, is_collider=True)
+# Turn off materials for the OBJ export
 export_selection(PATH_COLLISION, with_materials=False)
 bpy.ops.object.delete()
 
-
+# Create the model.sdf file
 generate_sdf()
+# Create the model.config file
 generate_config()
 
