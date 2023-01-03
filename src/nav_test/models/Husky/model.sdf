@@ -204,6 +204,7 @@
       <enable_wind>0</enable_wind>
       <kinematic>0</kinematic>
       <sensor name="camera_front" type="rgbd_camera">
+        <topic>camera</topic>
         <camera name="camera_front">
           <horizontal_fov>1.0472</horizontal_fov>
           <lens>

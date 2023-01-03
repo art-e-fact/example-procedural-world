@@ -15,8 +15,8 @@ jobs:
         output_path: /tmp/artefacts_output
       settings:
         - name: reach_goal_1
-          ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=4"
-        # - name: reach_goal_2
-        #   ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=5"
-        # - name: reach_goal_3
-        #   ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=6"
+          ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=1"
+        - name: reach_goal_2
+          ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=2"
+        - name: reach_goal_3
+          ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=3"

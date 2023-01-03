@@ -29,7 +29,7 @@ def generate_test_description():
         executable='snapshot_sky', 
     )
 
-    video_recorder = Node(
+    video_recorder_topdown = Node(
         package='image_view',
         executable='video_recorder',
         parameters=[{
@@ -38,6 +38,18 @@ def generate_test_description():
         }],
         remappings=[
             ("image", "/sky_cam")
+        ]
+    )
+
+    video_recorder_onboard = Node(
+        package='image_view',
+        executable='video_recorder',
+        parameters=[{
+            "filename": '/tmp/artefacts_output/onboard.mp4',
+            "codec": "h264"
+        }],
+        remappings=[
+            ("image", "/camera/image")
         ]
     )
 
@@ -59,7 +71,8 @@ def generate_test_description():
             bag_recorder,
             ReadyToTest(),
             snapshot_sky,
-            video_recorder,
+            video_recorder_topdown,
+            video_recorder_onboard,
         ]
     )
 

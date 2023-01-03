@@ -7,7 +7,7 @@ from launch.substitutions import PathJoinSubstitution, TextSubstitution
 
 
 def generate_launch_description():
-    simulation = IncludeLaunchDescription(
+    simulation = IncludeLaunchDescription(  
         PythonLaunchDescriptionSource(
             [
                 PathJoinSubstitution(
@@ -28,6 +28,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
+                # "use_sim_time": True, 
                 "goal_x": "3.0",
                 "goal_y": "0.0",
             }

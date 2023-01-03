@@ -111,14 +111,10 @@ class Robot(Node):
         map_free = np.zeros(self.map.shape, dtype=np.int8)
         map_wall = np.zeros(self.map.shape, dtype=np.int8)
 
-        try:
-            sensor_pose = self.tf_buffer.lookup_transform(
-                self.world_frame, self.lidar_frame, rclpy.time.Time()
-            )
-        except TransformException as ex:
-            self.get_logger().info(
-                f'Could not transform "{self.world_frame}" to "{self.lidar_frame}": {ex}'
-            )
+        sensor_pose = self.lookup_transform(
+            self.world_frame, self.lidar_frame, rclpy.time.Time.from_msg(msg.header.stamp)
+        )
+        if sensor_pose == None:
             return
 
         robot_map_pose = self.world_pose_to_map(sensor_pose.transform.translation)
@@ -139,7 +135,7 @@ class Robot(Node):
             lidar_hit_map_pose = self.world_pose_to_map(laser_hit_pose)
             cv2.line(map_free, robot_map_pose, lidar_hit_map_pose, 1)
             if range < msg.range_max:
-                cv2.circle(map_wall, lidar_hit_map_pose, radius=1, color=1, thickness=5)
+                cv2.circle(map_wall, lidar_hit_map_pose, radius=1, color=1, thickness=8)
             self.map[(map_free == 1) & (map_wall == 0) & (self.map < 120)] += 1
             self.map[(map_wall == 1) & (self.map > -110)] -= -12
 
@@ -288,10 +284,10 @@ class Robot(Node):
 
         self.publisher_path.publish(self.path)
 
-    def lookup_transform(self, target_frame: str, source_frame: str):
+    def lookup_transform(self, target_frame: str, source_frame: str, time: rclpy.time.Time):
         try:
             return self.tf_buffer.lookup_transform(
-                target_frame, source_frame, rclpy.time.Time()
+                target_frame, source_frame, time
             )
         except TransformException as ex:
             self.get_logger().info(
@@ -300,7 +296,7 @@ class Robot(Node):
             return None
 
     def navigate(self):
-        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame)
+        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame, rclpy.time.Time())
         if robot_pose == None:
             return
 
@@ -346,11 +342,11 @@ class Robot(Node):
                 cmd_msg.angular.z = angle * 20
             else:
                 cmd_msg.angular.z = angle
-                cmd_msg.linear.x = 10.0 - np.abs(angle) * 8
+                cmd_msg.linear.x = 1.0 - np.abs(angle) * 0.8
             self.publisher_cmd_vel.publish(cmd_msg)
 
     def check_goal_reached(self):
-        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame)
+        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame, rclpy.time.Time())
         if robot_pose == None or len(self.path.poses) == 0:
             return
 

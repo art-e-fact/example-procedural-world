@@ -59,6 +59,7 @@ def generate_launch_description():
             "/imu@sensor_msgs/msg/Imu@ignition.msgs.IMU",
             "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
             "/sky_cam@sensor_msgs/msg/Image@ignition.msgs.Image",
+            "/camera/image@sensor_msgs/msg/Image@ignition.msgs.Image",
         ],
         remappings=[
             ("/lidar", "/scan"),
