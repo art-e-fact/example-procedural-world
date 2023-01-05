@@ -4,6 +4,14 @@ project: example-procedural-world
 jobs:
   nav_tests: # Overall job name
     type: test
+    package:
+      custom:
+        commands:
+          - export BLENDER_MAJOR=3.3
+          - export BLENDER_VERSION=3.3.1
+          - export BLENDER_URL=https://mirrors.dotsrc.org/blender/release/Blender${BLENDER_MAJOR}/blender-${BLENDER_VERSION}-linux-x64.tar.xz
+          - curl -L ${BLENDER_URL} | tar -xJ -C /usr/local/
+          - mv /usr/local/blender-${BLENDER_VERSION}-linux64 /usr/local/blender
     runtime:
       simulator: gazebo:fortress
       framework: ros2:0
