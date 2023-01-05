@@ -11,7 +11,6 @@ import cv2
 
 import rclpy
 import rclpy.time
-from rclpy import qos
 from rclpy.node import Node
 
 import tf_transformations
@@ -67,10 +66,9 @@ class Robot(Node):
 
         # Initialize the transform broadcaster
         self.tf_broadcaster = TransformBroadcaster(self)
-        self.tf_static_broadcaster = StaticTransformBroadcaster(self)
 
         self.subscription_pose_static = self.create_subscription(
-            TFMessage, f"/pose_static", self.handle_pose_static, 10
+            TFMessage, f"/pose_static", self.handle_pose, 10
         )
         self.subscription_pose_static = self.create_subscription(
             LaserScan, f"/scan", self.handle_scan, 10
@@ -98,9 +96,6 @@ class Robot(Node):
     def handle_pose(self, t):
         self.tf_broadcaster.sendTransform(t.transforms)
 
-    def handle_pose_static(self, t):
-        self.tf_static_broadcaster.sendTransform(t.transforms)
-
     def world_pose_to_map(self, pose):
         return (
             round((pose.x - self.map_origin.x) / self.map_resolution),
@@ -111,8 +106,9 @@ class Robot(Node):
         map_free = np.zeros(self.map.shape, dtype=np.int8)
         map_wall = np.zeros(self.map.shape, dtype=np.int8)
 
+        msg_time = rclpy.time.Time.from_msg(msg.header.stamp)
         sensor_pose = self.lookup_transform(
-            self.world_frame, self.lidar_frame, rclpy.time.Time.from_msg(msg.header.stamp)
+            self.world_frame, self.lidar_frame, msg_time
         )
         if sensor_pose == None:
             return
@@ -250,7 +246,7 @@ class Robot(Node):
                 return
 
             prev = path[0]
-            self.get_logger().info(f"Score trail {prev}: {score_map[prev[0], prev[1]]}")
+            # self.get_logger().info(f"Score trail {prev}: {score_map[prev[0], prev[1]]}")
             parent = parent_map[prev[0], prev[1]]
             path.insert(0, parent)
 
@@ -302,7 +298,7 @@ class Robot(Node):
 
         robot_xy = np.array(
             [
-                robot_pose.transform.translation.x,
+                robot_pose.transform.translation.x, 
                 robot_pose.transform.translation.y,
             ]
         )
