@@ -1,3 +1,10 @@
+
+Requirements:
+ - ROS2 Galactic or above
+ - Gazebo Fortress https://gazebosim.org/docs/fortress/install_ubuntu
+ - Artefacts https://docs.artefacts.com/latest/#getting-started-with-artefacts
+ - Blender 3.4.1 or above
+
 Run with artefacts:  
 `colcon build --symlink-install && artefacts run nav_tests --nosim`
 
