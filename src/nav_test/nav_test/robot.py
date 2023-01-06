@@ -166,7 +166,7 @@ class Robot(Node):
         cv2.imwrite("/tmp/artefacts_output/map.png", map_img)
 
     # minimal a-start path finder
-    def find_path(self, start: tuple[int, int], end: tuple[int, int]):
+    def find_path(self, start, end):
         # flag the computer nodes
         discovered = np.full(self.map.shape, 0.0)
         # position of the best parent node
