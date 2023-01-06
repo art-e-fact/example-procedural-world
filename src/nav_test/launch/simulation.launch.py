@@ -47,7 +47,7 @@ def generate_launch_description():
     )
 
     bridge = Node(
-        package="ros_gz_bridge",
+        package="ros_ign_bridge",
         executable="parameter_bridge",
         arguments=[
             "/lidar@sensor_msgs/msg/LaserScan[ignition.msgs.LaserScan",
