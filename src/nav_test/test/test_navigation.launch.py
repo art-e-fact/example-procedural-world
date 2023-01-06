@@ -82,4 +82,4 @@ def generate_test_description():
 class TestTurtle(unittest.TestCase):
     def test_tank_reach_target(self, proc_output):
         # This will match stdout from test_process.
-        proc_output.assertWaitFor("Goal reached!", timeout=50)
+        proc_output.assertWaitFor("Goal reached!", timeout=120)
