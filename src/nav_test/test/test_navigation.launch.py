@@ -34,7 +34,8 @@ def generate_test_description():
         executable='video_recorder',
         parameters=[{
             "filename": '/tmp/artefacts_output/topdown.mp4',
-            "codec": "h264"
+            "codec": "h264",
+            "use_sim_time": True,
         }],
         remappings=[
             ("image", "/sky_cam")
@@ -46,7 +47,8 @@ def generate_test_description():
         executable='video_recorder',
         parameters=[{
             "filename": '/tmp/artefacts_output/onboard.mp4',
-            "codec": "h264"
+            "codec": "h264",
+            "use_sim_time": True,
         }],
         remappings=[
             ("image", "/camera/image")

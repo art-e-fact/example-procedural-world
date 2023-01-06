@@ -33,10 +33,10 @@ def generate_launch_description():
 
     # delay starting gazebo to make sure the model generation is done
     gazebo = launch.actions.TimerAction(
-        period=2.0,
+        period=20.0,#find a better way to wait until blender is done
         actions=[
             ExecuteProcess(
-                cmd=["ign", "gazebo", "-v 4", "-r", world_path],
+                cmd=["ign", "gazebo", "-v 4", "-s", "-r", world_path],
                 additional_env={
                     "IGN_GAZEBO_MODEL_PATH": models_path,
                     "IGN_GAZEBO_RESOURCE_PATH": models_path,
