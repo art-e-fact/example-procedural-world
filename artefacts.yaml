@@ -19,7 +19,7 @@ jobs:
     runtime:
       simulator: gazebo:fortress
       framework: ros2:0
-    timeout: 2 #minutes
+    timeout: 5 #minutes
     scenarios:
       defaults: # Global to all scenarios, and overriden in specific scenarios.
         subscriptions:

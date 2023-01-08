@@ -211,7 +211,7 @@ class Robot(Node):
                     danger_cost = 0.0
                 dist_cost = np.linalg.norm(pos - end)
                 g_cost = parent_g_cost + step_cost
-                h_cost =  danger_cost + dist_cost
+                h_cost = danger_cost + dist_cost
                 if g_cost + h_cost < score_map[pos[0], pos[1]].sum():
                     score_map[pos[0], pos[1]] = [g_cost, h_cost]
                     parent_map[pos[0], pos[1]] = [x, y]
@@ -280,11 +280,11 @@ class Robot(Node):
 
         self.publisher_path.publish(self.path)
 
-    def lookup_transform(self, target_frame: str, source_frame: str, time: rclpy.time.Time):
+    def lookup_transform(
+        self, target_frame: str, source_frame: str, time: rclpy.time.Time
+    ):
         try:
-            return self.tf_buffer.lookup_transform(
-                target_frame, source_frame, time
-            )
+            return self.tf_buffer.lookup_transform(target_frame, source_frame, time)
         except TransformException as ex:
             self.get_logger().info(
                 f'Could not transform "{target_frame}" to "{source_frame}": {ex}'
@@ -292,19 +292,21 @@ class Robot(Node):
             return None
 
     def navigate(self):
-        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame, rclpy.time.Time())
+        robot_pose = self.lookup_transform(
+            self.world_frame, self.robot_frame, rclpy.time.Time()
+        )
         if robot_pose == None:
             return
 
         robot_xy = np.array(
             [
-                robot_pose.transform.translation.x, 
+                robot_pose.transform.translation.x,
                 robot_pose.transform.translation.y,
             ]
         )
 
         next_pose = None
-        min_pose_distance = 0.5
+        min_pose_distance = 0.9
         for pose in self.path.poses:
             dist = np.linalg.norm(
                 robot_xy - np.array([pose.pose.position.x, pose.pose.position.y])
@@ -342,7 +344,9 @@ class Robot(Node):
             self.publisher_cmd_vel.publish(cmd_msg)
 
     def check_goal_reached(self):
-        robot_pose = self.lookup_transform(self.world_frame, self.robot_frame, rclpy.time.Time())
+        robot_pose = self.lookup_transform(
+            self.world_frame, self.robot_frame, rclpy.time.Time()
+        )
         if robot_pose == None or len(self.path.poses) == 0:
             return
 
