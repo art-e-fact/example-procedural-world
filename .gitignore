@@ -1,6 +1,6 @@
 venv
 generated_models
-assets
+/assets
 *.blend1
 __pycache__
 build
