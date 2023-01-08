@@ -1,6 +1,6 @@
 
 Requirements:
- - ROS2 Galactic or above
+ - ROS2 Humble
  - Gazebo Fortress https://gazebosim.org/docs/fortress/install_ubuntu
  - Artefacts https://docs.artefacts.com/latest/#getting-started-with-artefacts
  - Blender 3.4.1 or above
