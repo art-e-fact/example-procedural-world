@@ -14,5 +14,4 @@ RUN . /opt/ros/humble/setup.sh && MAKEFLAGS="-j1 -l1" colcon build --symlink-ins
 
 WORKDIR /ws/src
 
-RUN  python3 -m pip install transforms3d
 CMD . /ws/install/setup.sh && artefacts run $ARTEFACTS_JOB_NAME
