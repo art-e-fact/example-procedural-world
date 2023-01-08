@@ -4,6 +4,7 @@ RUN wget https://mirror.clarkson.edu/blender/release/Blender3.4/blender-3.4.1-li
   tar -xvf blender-3.4.1-linux-x64.tar.xz --strip-components=1 -C /bin && \
   rm -rf blender-3.4.1-linux-x64.tar.xz && \
   rm -rf blender-3.4.1-linux-x64
+RUN apt install python3-transforms3d
 
 COPY . /ws/src
 
