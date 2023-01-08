@@ -1,6 +1,7 @@
 import launch
-from launch.substitutions import LaunchConfiguration
-from launch.actions import ExecuteProcess
+from launch.substitutions import LaunchConfiguration, FindExecutable
+from launch.actions import ExecuteProcess, RegisterEventHandler, LogInfo
+from launch.event_handlers import OnProcessExit
 from launch_ros.actions import Node
 from launch_ros.substitutions import FindPackageShare
 import os
@@ -20,7 +21,7 @@ def generate_launch_description():
 
     generate_field_model = ExecuteProcess(
         cmd=[
-            "blender",
+            FindExecutable(name="blender"),
             "-b",
             os.path.join(pkg_share, "blender/navigation.blend"),
             "--python",
@@ -32,18 +33,13 @@ def generate_launch_description():
     )
 
     # delay starting gazebo to make sure the model generation is done
-    gazebo = launch.actions.TimerAction(
-        period=20.0,#find a better way to wait until blender is done
-        actions=[
-            ExecuteProcess(
-                cmd=["ign", "gazebo", "-v 4", "-s", "-r", world_path],
-                additional_env={
-                    "IGN_GAZEBO_MODEL_PATH": models_path,
-                    "IGN_GAZEBO_RESOURCE_PATH": models_path,
-                },
-                output="screen",
-            )
-        ],
+    gazebo = ExecuteProcess(
+        cmd=[FindExecutable(name="ign"), "gazebo", "-v 4", "-s", "-r", world_path],
+        additional_env={
+            "IGN_GAZEBO_MODEL_PATH": models_path,
+            "IGN_GAZEBO_RESOURCE_PATH": models_path,
+        },
+        output="screen",
     )
 
     bridge = Node(
@@ -92,8 +88,17 @@ def generate_launch_description():
                 description="Random seed for generating procedural assets",
             ),
             generate_field_model,
-            rviz_node,
-            gazebo,
-            bridge,
+            # Wait until the assets are generated
+            RegisterEventHandler(
+                OnProcessExit(
+                    target_action=generate_field_model,
+                    on_exit=[
+                        LogInfo(msg="Model ganaration is done"),
+                        gazebo,
+                        bridge,
+                        rviz_node,
+                    ],
+                )
+            ),
         ]
     )
