@@ -32,6 +32,15 @@ bpy.ops.object.select_all(action='DESELECT')
 bpy.data.objects[MODEL_NAME].select_set(True)
 obj = bpy.data.objects[MODEL_NAME]
 
+def separate_meshes_by_material(obj):
+    all_objects_before = list(bpy.data.objects)
+    ctx = bpy.context.copy()
+    ctx['object'] = obj
+    bpy.ops.mesh.separate(ctx, type='MATERIAL')
+    new_objects = [o for o in bpy.data.objects if o not in all_objects_before]
+    parts = [obj] + new_objects
+    return parts
+
 # Apply all modifiers on the selected Blender object
 def apply_modifiers(obj, is_collider: bool):
     ctx = bpy.context.copy()
@@ -51,18 +60,40 @@ def apply_modifiers(obj, is_collider: bool):
     # Applying geometry nodes won't preserve the UV maps of the instanced meshes.
     #  Lucliky, the UV data is still available in the attributes, so we can convert
     #  back UV maps. For more info see: https://developer.blender.org/T85962#1375353
-    for i in reversed(range(len(obj.data.attributes))):
-        attr = obj.data.attributes[i]
-        obj.data.attributes.active_index = i
-        
-        if attr.name == "UVMap":
-            bpy.ops.geometry.attribute_convert(ctx, mode='UV_MAP')
 
-    for m in obj.modifiers:
-        obj.modifiers.remove(m)
-        
     bpy.ops.object.select_all(action='DESELECT')
     obj.select_set(True)
+
+    parts = separate_meshes_by_material(obj)
+
+    for obj in parts:
+        print(f"Restoring UV map for object '{obj.name}'")
+        material = obj.material_slots[0].material
+        found_uv_map = False
+        
+        for i in reversed(range(len(obj.data.attributes))):
+            attr = obj.data.attributes[i]
+            obj.data.attributes.active_index = i
+            
+            # Use the UV map with the same name as the material 
+            if attr.name == material.name:
+                with bpy.context.temp_override(object=obj): # type: ignore
+                    bpy.ops.geometry.attribute_convert(mode='UV_MAP')
+        
+        if found_uv_map:
+            print(f"Restored UV map '{material.name}'")
+        else:
+            print(f"Warning: failed to find UV map '{material.name}'. Make sure each material has a corresponding UV map (with the same name) attrubute on the generated object")
+            attribute_names = [attr.name for attr in obj.data.attributes]
+            print(f"Available attributes are: {attribute_names}")
+
+        for m in obj.modifiers:
+            obj.modifiers.remove(m)
+
+    # Select the parts for the following steps 
+    bpy.ops.object.select_all(action='DESELECT')
+    for obj in parts:
+        obj.select_set(True)
 
 # Util for duplicating a Blender object
 def duplicate(obj, add_to_scene=True):
