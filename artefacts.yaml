@@ -25,6 +25,9 @@ jobs:
         subscriptions:
           map: map
         output_path: /tmp/artefacts_output
+        params:
+          - test/seed: [1,2,3],
+          - test/distance: [6,4],
       settings:
         - name: reach_goal_1
           ros_testfile: "src/nav_test/test/test_navigation.launch.py seed:=1"
