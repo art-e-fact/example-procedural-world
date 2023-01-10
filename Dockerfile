@@ -5,6 +5,7 @@ RUN wget https://mirror.clarkson.edu/blender/release/Blender3.4/blender-3.4.1-li
   rm -rf blender-3.4.1-linux-x64.tar.xz && \
   rm -rf blender-3.4.1-linux-x64
 RUN apt install python3-transforms3d
+RUN python3 -m pip install plotly
 
 COPY . /ws/src
 

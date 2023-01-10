@@ -6,8 +6,10 @@ from std_msgs.msg import ColorRGBA, Header
 from sensor_msgs.msg import LaserScan
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Path
 
+import os
 import numpy as np
 import cv2
+import plotly.graph_objects as go
 
 import rclpy
 import rclpy.time
@@ -19,13 +21,12 @@ from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
 from tf2_ros.buffer import Buffer
 from tf2_ros.transform_listener import TransformListener
 
-ROBOT_TF_PREFIX = "costar_husky/"
-
 
 class Robot(Node):
     def __init__(self):
         super().__init__("robot")
 
+        self.output_dir = "/tmp/artefacts_output"
         self.world_frame = (
             self.declare_parameter("world_frame", "test_world")
             .get_parameter_value()
@@ -83,8 +84,8 @@ class Robot(Node):
         # Calculate and send new navigation commands periodically
         self.timer = self.create_timer(0.1, self.navigate)
 
-        # Save map periodically
-        self.timer = self.create_timer(2.0, self.save_map_to_image)
+        # Save charts and maps periodically
+        self.timer = self.create_timer(2.0, self.write_outputs)
 
         self.map = np.zeros((256, 256), dtype=np.int8)
         self.map_origin = Point(
@@ -92,6 +93,7 @@ class Robot(Node):
             y=-self.map.shape[1] / 2.0 * self.map_resolution,
         )
         self.path = Path()
+        self.position_trace = []
 
     def handle_pose(self, t):
         self.tf_broadcaster.sendTransform(t.transforms)
@@ -113,6 +115,7 @@ class Robot(Node):
         if sensor_pose == None:
             return
 
+        self.position_trace.append(sensor_pose.transform.translation)
         robot_map_pose = self.world_pose_to_map(sensor_pose.transform.translation)
 
         for i, angle in enumerate(
@@ -154,16 +157,6 @@ class Robot(Node):
     def publish_map(self):
         grid = self.create_occupancy_grid_msg(self.map)
         self.publisher_map.publish(grid)
-
-    def save_map_to_image(self):
-        map_img = np.full((*self.map.shape, 3), 0, np.uint8)
-        # save free nodes into the green channel
-        map_img[:, :, 1] = np.maximum(self.map, 0).view(np.uint8) * 2
-        # save occupied nodes into the red channel
-        map_img[:, :, 2] = (np.maximum(np.minimum(self.map, 0), -127) * -1).view(
-            np.uint8
-        ) * 2
-        cv2.imwrite("/tmp/artefacts_output/map.png", map_img)
 
     # minimal a-start path finder
     def find_path(self, start, end):
@@ -358,9 +351,35 @@ class Robot(Node):
         )
 
         if distance <= self.max_goal_distance:
+            self.write_outputs()
             self.get_logger().info("Goal reached!")
         else:
             self.get_logger().info(f"Goal is {distance}m away")
+
+    def write_outputs(self):
+        self.save_map_to_image()
+        self.export_plots()
+
+    def save_map_to_image(self):
+        map_img = np.full((*self.map.shape, 3), 0, np.uint8)
+        # save free nodes into the green channel
+        map_img[:, :, 1] = np.maximum(self.map, 0).view(np.uint8) * 2
+        # save occupied nodes into the red channel
+        map_img[:, :, 2] = (np.maximum(np.minimum(self.map, 0), -127) * -1).view(
+            np.uint8
+        ) * 2
+        cv2.imwrite(os.path.join(self.output_dir, "map.png"), map_img)
+
+    def export_plots(self):
+        # plot the 2D path of the robot
+        x = [t.x for t in self.position_trace]
+        y = [t.y for t in self.position_trace]
+
+        fig = go.Figure(
+            data=go.Scatter(x=x, y=y, mode="lines+markers", name="lines+markers")
+        )
+        fig.update_layout(title="Rover Path", xaxis_title="Map X", yaxis_title="Map Y")
+        fig.write_html(os.path.join(self.output_dir, "chart.html"))
 
 
 def main():
