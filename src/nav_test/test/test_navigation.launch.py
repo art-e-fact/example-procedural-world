@@ -15,15 +15,10 @@ def read_params():
     try:
         with open(PARAMS_FILE, "r") as f:
             configuration = yaml.safe_load(f)
-            print(f"Loaded configuration: {configuration}")
-            print(f'Extrinsics: {configuration["test"]["ros__parameters"]["seed"]}')
-            # TODO handle missing values
-            seed = configuration["test"]["ros__parameters"]["seed"]
-            distance = configuration["test"]["ros__parameters"]["distance"]
-            return seed, distance
+            return configuration["test"]["ros__parameters"]
     except FileExistsError as e:
         print(f"Failed to read '{PARAMS_FILE}': {e}")
-        return 0, 6
+        return {}
 
 @pytest.mark.launch_test
 def generate_test_description():
@@ -31,7 +26,7 @@ def generate_test_description():
     bag_recorder = ExecuteProcess(
         cmd=rosbag_cmd, output="screen", additional_env={"PYTHONUNBUFFERED": "1"}
     )
-    seed, distance = read_params()
+    params = read_params()
     # snapshot sky
     snapshot_sky = Node(
         package="nav_test",
@@ -72,7 +67,7 @@ def generate_test_description():
             ]
         ),
         launch_arguments={
-            "seed": seed,
+            "seed": str(params.get('seed', 0)),
         }.items(),
     )
 
