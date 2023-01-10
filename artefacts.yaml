@@ -18,6 +18,7 @@ jobs:
           map: map
         output_path: /tmp/artefacts_output
         params:
+          # Launch a test with each possible combination of the these parameters
           test/seed: [1,2,3]
           test/max_tree_density: [4.0, 0.2]
       settings:
