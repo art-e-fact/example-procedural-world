@@ -228,8 +228,8 @@
             <center>0.5 0.5</center>
           </distortion>
           <image>
-            <width>320</width>
-            <height>240</height>
+            <width>1024</width>
+            <height>768</height>
             <format>R8G8B8</format>
           </image>
           <clip>
