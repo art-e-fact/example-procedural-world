@@ -15,11 +15,6 @@ def generate_launch_description():
                 )
             ]
         ),
-        launch_arguments={
-            # "seed": "7",
-            # "use_provided_red": "True",
-            # "new_background_r": TextSubstitution(text=str(colors["background_r"])),
-        }.items(),
     )
     navigation = Node(
         package="nav_test",
@@ -28,7 +23,7 @@ def generate_launch_description():
         output="screen",
         parameters=[
             {
-                # "use_sim_time": True,
+                "use_sim_time": True,
                 "goal_x": "3.0",
                 "goal_y": "0.0",
             }

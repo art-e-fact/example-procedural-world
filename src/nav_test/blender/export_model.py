@@ -4,19 +4,18 @@ import sys
 from xml.dom import minidom
 from xml.etree import ElementTree
 
-if "--" in sys.argv:
-    argv = sys.argv[sys.argv.index("--") + 1:]
-else:
-    argv = []
+def get_arg(index, default: str) -> str: 
+    if "--" in sys.argv:
+        argv = sys.argv[sys.argv.index("--") + 1:]
+    else:
+        argv = []
+    return argv[index] if index < len(argv) else default
+    
 
 # Try to read the SEED from arguments
-# TODO read start-goal positions from arguments
-print(f"argv {argv}")
-if len(argv) > 0:
-    SEED = int(argv[0])
-else:
-    SEED = 0
-print(f"Using seed: {SEED}")
+SEED = int(get_arg(0, '21'))
+MAX_TREE_DENSITY = float(get_arg(1, '5.0'))
+print(f"SEED: {SEED} MAX_TREE_DENSITY: {MAX_TREE_DENSITY}")
 
 MODEL_NAME = "Field"
 # "//" is converted to the directory of the .blend file
@@ -55,6 +54,8 @@ def apply_modifiers(obj, is_collider: bool):
                 modifier[input.identifier] = is_collider
             if input.name == "seed":
                 modifier[input.identifier] = SEED
+            if input.name == "max_tree_density":
+                modifier[input.identifier] = MAX_TREE_DENSITY
         bpy.ops.object.modifier_apply(ctx, modifier=modifier.name)
 
     # Applying geometry nodes won't preserve the UV maps of the instanced meshes.

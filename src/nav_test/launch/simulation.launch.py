@@ -28,13 +28,14 @@ def generate_launch_description():
             os.path.join(pkg_share, "blender/export_model.py"),
             "--",
             launch.substitutions.LaunchConfiguration("seed"),
+            launch.substitutions.LaunchConfiguration("max_tree_density"),
         ],
         output="screen",
     )
 
     # delay starting gazebo to make sure the model generation is done
     gazebo = ExecuteProcess(
-        cmd=[FindExecutable(name="ign"), "gazebo", "-v 4", "-s", "-r", world_path],
+        cmd=[FindExecutable(name="ign"), "gazebo", "-v 4",  "-r", world_path],
         additional_env={
             "IGN_GAZEBO_MODEL_PATH": models_path,
             "IGN_GAZEBO_RESOURCE_PATH": models_path,
@@ -86,6 +87,11 @@ def generate_launch_description():
                 name="seed",
                 default_value="1",
                 description="Random seed for generating procedural assets",
+            ),
+            launch.actions.DeclareLaunchArgument(
+                name="max_tree_density",
+                default_value="5.0",
+                description="Sets the density of the trees in the generated model",
             ),
             generate_field_model,
             # Wait until the assets are generated

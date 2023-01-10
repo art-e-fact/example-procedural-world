@@ -19,6 +19,7 @@ jobs:
         output_path: /tmp/artefacts_output
         params:
           test/seed: [1,2,3]
+          test/max_tree_density: [4.0, 0.2]
       settings:
         - name: reach_goal_1
           ros_testfile: "src/nav_test/test/test_navigation.launch.py"
