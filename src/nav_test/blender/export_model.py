@@ -3,6 +3,7 @@ import os
 import sys
 from xml.dom import minidom
 from xml.etree import ElementTree
+from pathlib import Path   
 
 def get_arg(index, default: str) -> str: 
     if "--" in sys.argv:
@@ -95,6 +96,28 @@ def apply_modifiers(obj, is_collider: bool):
     bpy.ops.object.select_all(action='DESELECT')
     for obj in parts:
         obj.select_set(True)
+        
+    # Collect metadata for SDF generation
+    mesh_infos = []
+    for obj in parts:
+        data = {
+            # The name of the submesh in the exported OBJ file
+            'submesh_name': f"{obj.name}_{obj.data.name}",
+            'textures': {}
+        }
+        # Collect the image textures by relying on common file names
+        for node in obj.data.materials[0].node_tree.nodes:
+            if node.type == "TEX_IMAGE":
+                texture = Path(node.image.filepath_raw).name
+                texture_keys = ['albedo', 'roughness', 'metalness', 'normal']
+                key = next(key for key in texture_keys if key in texture.lower())
+                if not key:
+                    print(f"Warn: can't recognise texture '{texture}'. Texture names should contain: {texture_keys}")
+                else:
+                    data['textures'][f"{key}_map"] = texture
+        mesh_infos.append(data)
+
+    return mesh_infos
 
 # Util for duplicating a Blender object
 def duplicate(obj, add_to_scene=True):
@@ -114,7 +137,7 @@ def write_xml(xml: ElementTree.Element, filepath: str):
     file.close()
     print(f"Saved: {filepath}")
 
-def generate_sdf():
+def generate_sdf(mesh_infos):
     sdf = ElementTree.Element("sdf", attrib={"version": SDF_VERSION})
     model = ElementTree.SubElement(sdf, "model", attrib={"name": MODEL_NAME})
     statit_xml = ElementTree.SubElement(model, "static")
@@ -123,14 +146,31 @@ def generate_sdf():
         model, "link", attrib={"name": f"{MODEL_NAME}_link"}
     )
 
-    # Visual geometry
-    visual = ElementTree.SubElement(
-        link, "visual", attrib={"name": f"{MODEL_NAME}_visual"}
-    )
-    visual_geometry = ElementTree.SubElement(visual, "geometry")
-    visual_mesh = ElementTree.SubElement(visual_geometry, "mesh")
-    visual_mesh_uri = ElementTree.SubElement(visual_mesh, "uri")
-    visual_mesh_uri.text = os.path.relpath(PATH_VISUAL, os.path.dirname(PATH_SDF))
+    # Add visual for each submesh
+    for mesh_info in mesh_infos:
+        visual = ElementTree.SubElement(
+            link, "visual", attrib={"name": f"{MODEL_NAME}_visual_{mesh_info['submesh_name']}"}
+        )
+        visual_geometry = ElementTree.SubElement(visual, "geometry")
+        visual_mesh = ElementTree.SubElement(visual_geometry, "mesh")
+        visual_mesh_uri = ElementTree.SubElement(visual_mesh, "uri")
+        visual_mesh_uri.text = os.path.relpath(PATH_VISUAL, os.path.dirname(PATH_SDF))
+        visual_submesh = ElementTree.SubElement(visual_mesh, "submesh")
+        visual_submesh_name = ElementTree.SubElement(visual_submesh, "name")
+        visual_submesh_name.text = mesh_info['submesh_name']
+
+        # Add material 
+        visual_material = ElementTree.SubElement(visual, "material")
+        visual_pbr = ElementTree.SubElement(visual_material, "pbr")
+        visual_metal = ElementTree.SubElement(visual_pbr, "metal")
+        for texture_map in mesh_info['textures']:
+            map = ElementTree.SubElement(visual_metal, texture_map)
+            map.text = 'assets/' + mesh_info['textures'][texture_map]
+        visual_diffuse = ElementTree.SubElement(visual_material, "diffuse")
+        visual_diffuse.text = "1.0 1.0 1.0"
+        visual_specular = ElementTree.SubElement(visual_material, "specular")
+        visual_specular.text = "0.2 0.2 0.2"
+
 
     # Collider geometry
     collision = ElementTree.SubElement(
@@ -178,11 +218,11 @@ def export_selection(filepath: str, with_materials: bool):
 # Duplicate the object before any modification
 copied_obj = duplicate(obj) 
 # Apply the Geometry Node (and any other) modifiers
-apply_modifiers(copied_obj, is_collider=False)
+mesh_infos = apply_modifiers(copied_obj, is_collider=False)
 # Export mesh
 export_selection(PATH_VISUAL, with_materials=True)
 #TODO separate meshes and collect texture info
-# Delete the duplicated object
+# Delete the duplicated objects
 bpy.ops.object.delete()
 
 # Generate the collision mesh
@@ -194,7 +234,7 @@ export_selection(PATH_COLLISION, with_materials=False)
 bpy.ops.object.delete()
 
 # Create the model.sdf file
-generate_sdf()
+generate_sdf(mesh_infos)
 # Create the model.config file
 generate_config()
 
