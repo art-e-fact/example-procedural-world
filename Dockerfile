@@ -14,7 +14,7 @@ COPY . /ws/src
 
 WORKDIR /ws
 
-RUN rosdep install --from-paths src --ignore-src -r -y
+RUN apt update && rosdep install --from-paths src --ignore-src -r -y
 RUN . /opt/ros/humble/setup.sh && MAKEFLAGS="-j1 -l1" colcon build --symlink-install --executor sequential
 
 WORKDIR /ws/src
