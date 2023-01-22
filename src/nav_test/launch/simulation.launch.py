@@ -10,8 +10,6 @@ import os
 def generate_launch_description():
     pkg_share = FindPackageShare(package="nav_test").find("nav_test")
     default_rviz_config_path = os.path.join(pkg_share, "rviz/navigation.rviz")
-    world_path = os.path.join(pkg_share, "world/my_world.sdf")
-
     models_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../models")
     world_path = os.path.join(
         os.path.dirname(os.path.realpath(__file__)), "../worlds/scene1.sdf"

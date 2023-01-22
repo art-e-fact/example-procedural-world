@@ -1,4 +1,4 @@
-FROM public.ecr.aws/artefacts/ros2:humble-fortress
+FROM public.ecr.aws/artefacts/ros2:humble-dev
 
 RUN wget https://mirror.clarkson.edu/blender/release/Blender3.4/blender-3.4.1-linux-x64.tar.xz && \
   tar -xvf blender-3.4.1-linux-x64.tar.xz --strip-components=1 -C /bin && \
@@ -6,6 +6,9 @@ RUN wget https://mirror.clarkson.edu/blender/release/Blender3.4/blender-3.4.1-li
   rm -rf blender-3.4.1-linux-x64
 RUN apt install python3-transforms3d
 RUN python3 -m pip install plotly
+
+# COPY ./artefacts-client ./artefacts-client 
+# RUN pip install --editable ./artefacts-client
 
 COPY . /ws/src
 

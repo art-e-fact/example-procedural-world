@@ -10,7 +10,7 @@ jobs:
           dockerfile: ./Dockerfile 
     runtime:
       simulator: gazebo:fortress
-      framework: ros2:0
+      framework: ros2:humble
     timeout: 5 #minutes
     scenarios:
       defaults: # Global to all scenarios, and overriden in specific scenarios.

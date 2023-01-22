@@ -68,6 +68,7 @@ def generate_test_description():
         ),
         launch_arguments={
             "seed": str(params.get('seed', 0)),
+            "max_tree_density": str(params.get('max_tree_density', 5.0)),
         }.items(),
     )
 
@@ -83,7 +84,7 @@ def generate_test_description():
     )
 
 
-class TestTurtle(unittest.TestCase):
+class TestNavigation(unittest.TestCase):
     def test_tank_reach_target(self, proc_output):
         # This will match stdout from test_process.
         proc_output.assertWaitFor("Goal reached!", timeout=180)
