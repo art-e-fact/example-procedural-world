@@ -109,8 +109,8 @@ def apply_modifiers(obj, is_collider: bool):
         for node in obj.data.materials[0].node_tree.nodes:
             if node.type == "TEX_IMAGE":
                 texture = Path(node.image.filepath_raw).name
-                texture_keys = ['albedo', 'roughness', 'metalness', 'normal']
-                key = next(key for key in texture_keys if key in texture.lower())
+                texture_keys = ['albedo', 'roughness', 'metalness', 'normal', 'ambient_occlusion']
+                key = next((key for key in texture_keys if key in texture.lower()), None)
                 if not key:
                     print(f"Warn: can't recognise texture '{texture}'. Texture names should contain: {texture_keys}")
                 else:
