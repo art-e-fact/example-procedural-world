@@ -114,6 +114,7 @@ def apply_modifiers(obj, is_collider: bool):
                 if not key:
                     print(f"Warn: can't recognise texture '{texture}'. Texture names should contain: {texture_keys}")
                 else:
+                    print(f"Found texture {texture}")
                     data['textures'][f"{key}_map"] = texture
         mesh_infos.append(data)
 
